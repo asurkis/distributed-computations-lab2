@@ -94,6 +94,15 @@ static int run_child(struct Self *self) {
           (int)get_physical_time(), (int)self->id);
 
   for (;;) {
+    for (timestamp_t
+             t = history.s_history[history.s_history_len - 1].s_time + 1,
+             pt = get_physical_time();
+         t < pt; ++t) {
+      history.s_history[history.s_history_len].s_balance = self->my_balance;
+      history.s_history[history.s_history_len].s_time = t;
+      history.s_history[history.s_history_len].s_balance_pending_in = 0;
+      ++history.s_history_len;
+    }
     int retcode = receive_any(self, &msg);
     CHK_RETCODE(retcode);
     if (!retcode)
@@ -117,16 +126,12 @@ static int run_child(struct Self *self) {
         self->my_balance += order->s_amount;
       }
     }
-    while (history.s_history_len < get_physical_time()) {
-      history.s_history[history.s_history_len].s_balance = self->my_balance;
-      history.s_history[history.s_history_len].s_time = history.s_history_len;
-      history.s_history[history.s_history_len].s_balance_pending_in = 0;
-      ++history.s_history_len;
-    }
   }
-  while (history.s_history_len < get_physical_time()) {
+  for (timestamp_t t = history.s_history[history.s_history_len - 1].s_time + 1,
+                   pt = get_physical_time();
+       t <= pt; ++t) {
     history.s_history[history.s_history_len].s_balance = self->my_balance;
-    history.s_history[history.s_history_len].s_time = history.s_history_len;
+    history.s_history[history.s_history_len].s_time = t;
     history.s_history[history.s_history_len].s_balance_pending_in = 0;
     ++history.s_history_len;
   }
