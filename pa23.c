@@ -124,7 +124,13 @@ struct Self self;
 
 int main(int argc, char *argv[]) {
   size_t n_children;
-  if (argc < 4 || sscanf(argv[2], "%zu", &n_children) != 1) {
+  if (argc < 3 || sscanf(argv[2], "%zu", &n_children) != 1) {
+    printf("Usage: %s -p <number of processes>"
+           "<amount of money for each process>\n",
+           argv[0]);
+    return 0;
+  }
+  if (argc < 3 + n_children) {
     printf("Usage: %s -p <number of processes>"
            "<amount of money for each process>\n",
            argv[0]);
