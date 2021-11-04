@@ -66,7 +66,13 @@ int receive(void *self_, local_id from, Message *msg) {
 
 int receive_any(void *self_, Message *msg) {
   struct Self *self = self_;
-  (void)self;
-  /* Unimplemented */
-  return -1;
+  for (size_t i = 0; i < self->n_processes; ++i) {
+    if (i != self->id) {
+      int retcode = receive(self, i, msg);
+      CHK_RETCODE(retcode);
+      if (retcode)
+        return retcode;
+    }
+  }
+  return 0;
 }
