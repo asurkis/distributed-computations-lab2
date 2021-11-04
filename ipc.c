@@ -38,17 +38,16 @@ int send(void *self_, local_id dst_, Message const *msg) {
   CHK_RETCODE(write_repeat(
       fd, (char *)msg, sizeof(MessageHeader) + msg->s_header.s_payload_len));
   self->local_time++;
-  return 0;
+  return 1;
 }
 
 int send_multicast(void *self_, Message const *msg) {
   struct Self *self = self_;
   for (size_t i = 0; i < self->n_processes; ++i) {
-    if (i != self->id) {
+    if (i != self->id)
       send(self, (local_id)i, msg);
-    }
   }
-  return 0;
+  return 1;
 }
 
 int receive(void *self_, local_id from, Message *msg) {
@@ -62,7 +61,7 @@ int receive(void *self_, local_id from, Message *msg) {
     CHK_RETCODE(retcode);
   }
   self->local_time++;
-  return 0;
+  return 1;
 }
 
 int receive_any(void *self_, Message *msg) {

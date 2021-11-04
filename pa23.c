@@ -46,9 +46,11 @@ static int deinit_process(struct Self *self) {
 
 static int wait_for_message(struct Self *self, size_t from, Message *msg,
                             MessageType type) {
-  do {
-    CHK_RETCODE(receive(self, (local_id)from, msg));
-  } while (msg->s_header.s_type != type);
+  int retcode = 0;
+  while (!retcode) {
+    retcode = receive(self, (local_id)from, msg);
+    CHK_RETCODE(retcode);
+  }
   return 0;
 }
 
@@ -101,21 +103,29 @@ static int run_child(struct Self *self) {
   fprintf(self->events_log, log_received_all_done_fmt, (int)get_physical_time(),
           (int)self->id);
 
+  msg.s_header.s_magic = MESSAGE_MAGIC;
+  msg.s_header.s_local_time = get_physical_time();
+  msg.s_header.s_type = BALANCE_HISTORY;
+  msg.s_header.s_payload_len =
+      (char *)&history.s_history[history.s_history_len] - (char *)&history;
+  memcpy(msg.s_payload, &history, msg.s_header.s_payload_len);
+  CHK_RETCODE(send(self, 0, &msg));
+
   CHK_RETCODE(deinit_process(self));
   return 0;
 }
 
 static int run_parent(struct Self *self) {
   Message msg;
+  AllHistory history;
   CHK_RETCODE(init_process(self));
-
-  // bank_robbery(parent_data);
-  // print_history(all);
 
   for (size_t i = 1; i < self->n_processes; ++i)
     CHK_RETCODE(wait_for_message(self, i, &msg, STARTED));
   fprintf(self->events_log, log_received_all_started_fmt,
           (int)get_physical_time(), (int)self->id);
+
+  // bank_robbery(parent_data);
 
   msg.s_header.s_magic = MESSAGE_MAGIC;
   msg.s_header.s_local_time = get_physical_time();
@@ -127,6 +137,13 @@ static int run_parent(struct Self *self) {
     CHK_RETCODE(wait_for_message(self, i, &msg, DONE));
   fprintf(self->events_log, log_received_all_done_fmt, (int)get_physical_time(),
           (int)self->id);
+
+  history.s_history_len = self->n_processes - 1;
+  for (size_t i = 1; i < self->n_processes; ++i) {
+    CHK_RETCODE(wait_for_message(self, i, &msg, BALANCE_HISTORY));
+    memcpy(&history.s_history[i], msg.s_payload, msg.s_header.s_payload_len);
+  }
+  print_history(&history);
 
   for (size_t i = 1; i < self->n_processes; ++i)
     wait(NULL);
@@ -171,6 +188,7 @@ int main(int argc, char *argv[]) {
       }
     }
   }
+  fflush(self.pipes_log);
 
   self.local_time = 0;
 
