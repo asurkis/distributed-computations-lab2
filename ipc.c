@@ -3,6 +3,8 @@
 static int write_repeat(int fd, char const *buf, size_t size) {
   while (size) {
     ssize_t shift = write(fd, buf, size);
+    if (shift < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+      continue;
     CHK_ERRNO(shift);
     if (!shift)
       return -1;

@@ -94,12 +94,6 @@ static int run_child(struct Self *self) {
           (int)get_physical_time(), (int)self->id);
 
   for (;;) {
-    while (history.s_history_len < get_physical_time()) {
-      history.s_history[history.s_history_len].s_balance = self->my_balance;
-      history.s_history[history.s_history_len].s_time = history.s_history_len;
-      history.s_history[history.s_history_len].s_balance_pending_in = 0;
-      ++history.s_history_len;
-    }
     int retcode = receive_any(self, &msg);
     CHK_RETCODE(retcode);
     if (!retcode)
@@ -122,6 +116,12 @@ static int run_child(struct Self *self) {
         send(self, 0, &msg);
         self->my_balance += order->s_amount;
       }
+    }
+    while (history.s_history_len < get_physical_time()) {
+      history.s_history[history.s_history_len].s_balance = self->my_balance;
+      history.s_history[history.s_history_len].s_time = history.s_history_len;
+      history.s_history[history.s_history_len].s_balance_pending_in = 0;
+      ++history.s_history_len;
     }
   }
 
@@ -224,6 +224,7 @@ int main(int argc, char *argv[]) {
       } else {
         CHK_ERRNO(pipe(to_create));
         CHK_ERRNO(fcntl(to_create[0], F_SETFL, O_NONBLOCK));
+        CHK_ERRNO(fcntl(to_create[1], F_SETFL, O_NONBLOCK));
         fprintf(self.pipes_log, "Pipe %zu ==> %zu: rfd=%d, wfd=%d\n", i, j,
                 to_create[0], to_create[1]);
       }
