@@ -59,9 +59,9 @@ static int run_child(struct Self *self) {
   msg.s_header.s_magic = MESSAGE_MAGIC;
   msg.s_header.s_local_time = 0;
   msg.s_header.s_type = STARTED;
-  msg.s_header.s_payload_len =
-      snprintf(msg.s_payload, MAX_PAYLOAD_LEN, log_started_fmt, (int)self->id,
-               (int)getpid(), (int)getppid());
+  msg.s_header.s_payload_len = snprintf(
+      msg.s_payload, MAX_PAYLOAD_LEN, log_started_fmt, (int)get_physical_time(),
+      (int)self->id, (int)getpid(), (int)getppid(), self->my_balance);
   fputs(msg.s_payload, self->events_log);
   CHK_RETCODE(send_multicast(self, &msg));
 
@@ -71,13 +71,15 @@ static int run_child(struct Self *self) {
     }
   }
 
-  fprintf(self->events_log, log_received_all_started_fmt, (int)self->id);
+  fprintf(self->events_log, log_received_all_started_fmt,
+          (int)get_physical_time(), (int)self->id);
 
   msg.s_header.s_magic = MESSAGE_MAGIC;
   msg.s_header.s_local_time = 0;
   msg.s_header.s_type = DONE;
   msg.s_header.s_payload_len =
-      snprintf(msg.s_payload, MAX_PAYLOAD_LEN, log_done_fmt, (int)self->id);
+      snprintf(msg.s_payload, MAX_PAYLOAD_LEN, log_done_fmt,
+               (int)get_physical_time(), (int)self->id, self->my_balance);
   fputs(msg.s_payload, self->events_log);
   CHK_RETCODE(send_multicast(self, &msg));
 
@@ -87,7 +89,8 @@ static int run_child(struct Self *self) {
     }
   }
 
-  fprintf(self->events_log, log_received_all_done_fmt, (int)self->id);
+  fprintf(self->events_log, log_received_all_done_fmt, (int)get_physical_time(),
+          (int)self->id);
 
   CHK_RETCODE(deinit_process(self));
   return 0;
@@ -102,11 +105,13 @@ static int run_parent(struct Self *self) {
 
   for (size_t i = 1; i < self->n_processes; ++i)
     CHK_RETCODE(wait_for_message(self, i, &msg, STARTED));
-  fprintf(self->events_log, log_received_all_started_fmt, (int)self->id);
+  fprintf(self->events_log, log_received_all_started_fmt,
+          (int)get_physical_time(), (int)self->id);
 
   for (size_t i = 1; i < self->n_processes; ++i)
     CHK_RETCODE(wait_for_message(self, i, &msg, DONE));
-  fprintf(self->events_log, log_received_all_done_fmt, (int)self->id);
+  fprintf(self->events_log, log_received_all_done_fmt, (int)get_physical_time(),
+          (int)self->id);
 
   for (size_t i = 1; i < self->n_processes; ++i)
     wait(NULL);
@@ -148,6 +153,7 @@ int main(int argc, char *argv[]) {
   self.local_time = 0;
 
   for (size_t id = 1; id < self.n_processes; ++id) {
+    sscanf(argv[2 + id], "%" SCNd16, &self.my_balance);
     pid_t pid = fork();
     CHK_ERRNO(pid);
     if (!pid) {
