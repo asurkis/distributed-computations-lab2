@@ -124,6 +124,12 @@ static int run_child(struct Self *self) {
       ++history.s_history_len;
     }
   }
+  while (history.s_history_len < get_physical_time()) {
+    history.s_history[history.s_history_len].s_balance = self->my_balance;
+    history.s_history[history.s_history_len].s_time = history.s_history_len;
+    history.s_history[history.s_history_len].s_balance_pending_in = 0;
+    ++history.s_history_len;
+  }
 
   msg.s_header.s_magic = MESSAGE_MAGIC;
   msg.s_header.s_local_time = get_physical_time();
