@@ -94,6 +94,12 @@ static int run_child(struct Self *self) {
           (int)get_physical_time(), (int)self->id);
 
   for (;;) {
+    while (history.s_history_len < get_physical_time()) {
+      history.s_history[history.s_history_len].s_balance = self->my_balance;
+      history.s_history[history.s_history_len].s_time = history.s_history_len;
+      history.s_history[history.s_history_len].s_balance_pending_in = 0;
+      ++history.s_history_len;
+    }
     int retcode = receive_any(self, &msg);
     CHK_RETCODE(retcode);
     if (!retcode)
@@ -115,13 +121,6 @@ static int run_child(struct Self *self) {
         msg.s_header.s_local_time = get_physical_time();
         send(self, 0, &msg);
         self->my_balance += order->s_amount;
-      }
-
-      if (order->s_src == self->id || order->s_dst == self->id) {
-        history.s_history[history.s_history_len].s_balance = 0;
-        history.s_history[history.s_history_len].s_time = get_physical_time();
-        history.s_history[history.s_history_len].s_balance_pending_in = 0;
-        ++history.s_history_len;
       }
     }
   }
@@ -182,7 +181,8 @@ static int run_parent(struct Self *self) {
   history.s_history_len = self->n_processes - 1;
   for (size_t i = 1; i < self->n_processes; ++i) {
     CHK_RETCODE(wait_for_message(self, i, &msg, BALANCE_HISTORY));
-    memcpy(&history.s_history[i], msg.s_payload, msg.s_header.s_payload_len);
+    memcpy(&history.s_history[i - 1], msg.s_payload,
+           msg.s_header.s_payload_len);
   }
   print_history(&history);
 
