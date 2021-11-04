@@ -13,13 +13,21 @@ static int write_repeat(int fd, char const *buf, size_t size) {
 }
 
 static int read_repeat(int fd, char *buf, size_t size) {
+  int started_reading = 0;
   while (size) {
     ssize_t shift = read(fd, buf, size);
+    if (shift < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      if (started_reading)
+        continue;
+      else
+        return 0;
+    }
     CHK_ERRNO(shift);
     if (!shift)
       return -1;
     buf += shift;
     size -= shift;
+    started_reading = 1;
   }
   return 1;
 }
@@ -65,13 +73,16 @@ int receive(void *self_, local_id from, Message *msg) {
   struct Self *self = self_;
   int fd = self->pipes[2 * (from * self->n_processes + self->id)];
   int retcode = read_repeat(fd, (char *)&msg->s_header, sizeof(MessageHeader));
-  CHK_RETCODE(retcode);
+  CHK_RETCODE_ZERO(retcode);
 
   switch (msg->s_header.s_type) {
   case STARTED:
   case DONE:
-    retcode = read_repeat(fd, msg->s_payload, msg->s_header.s_payload_len);
-    CHK_RETCODE(retcode);
+    retcode = 0;
+    while (!retcode) {
+      retcode = read_repeat(fd, msg->s_payload, msg->s_header.s_payload_len);
+      CHK_RETCODE(retcode);
+    }
     break;
 
   case ACK:

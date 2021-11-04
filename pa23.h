@@ -6,6 +6,7 @@
 #include "ipc.h"
 #include "pa2345.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -35,6 +36,17 @@
     if (result__ < 0) {                                                        \
       perror("[" __FILE__ "] " #code);                                         \
       fprintf(stderr, "[%s:%d] errno = %d\n", __FILE__, __LINE__, errno);      \
+      return result__;                                                         \
+    }                                                                          \
+  } while (0)
+
+#define CHK_RETCODE_ZERO(code)                                                 \
+  do {                                                                         \
+    intmax_t result__ = code;                                                  \
+    if (!result__)                                                             \
+      return 0;                                                                \
+    if (result__ < 0) {                                                        \
+      fprintf(stderr, "[%s:%d] %s\n", __FILE__, __LINE__, #code);              \
       return result__;                                                         \
     }                                                                          \
   } while (0)

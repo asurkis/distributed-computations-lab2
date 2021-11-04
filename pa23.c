@@ -150,6 +150,7 @@ int main(int argc, char *argv[]) {
         to_create[1] = -1;
       } else {
         CHK_ERRNO(pipe(to_create));
+        CHK_ERRNO(fcntl(to_create[0], F_SETFL, O_NONBLOCK));
         fprintf(self.pipes_log, "Pipe %zu ==> %zu: rfd=%d, wfd=%d\n", i, j,
                 to_create[0], to_create[1]);
       }
