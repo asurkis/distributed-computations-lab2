@@ -1,5 +1,4 @@
 #include "pa23.h"
-#include "banking.h"
 
 void transfer(void *parent_data, local_id src, local_id dst, balance_t amount) {
   // student, please implement me
@@ -56,6 +55,40 @@ static int wait_for_message(struct Self *self, size_t from, Message *msg,
 static int run_child(struct Self *self) {
   Message msg;
   CHK_RETCODE(init_process(self));
+
+  msg.s_header.s_magic = MESSAGE_MAGIC;
+  msg.s_header.s_local_time = 0;
+  msg.s_header.s_type = STARTED;
+  msg.s_header.s_payload_len =
+      snprintf(msg.s_payload, MAX_PAYLOAD_LEN, log_started_fmt, (int)self->id,
+               (int)getpid(), (int)getppid());
+  fputs(msg.s_payload, self->events_log);
+  CHK_RETCODE(send_multicast(self, &msg));
+
+  for (size_t i = 1; i < self->n_processes; ++i) {
+    if (i != self->id) {
+      CHK_RETCODE(wait_for_message(self, i, &msg, STARTED));
+    }
+  }
+
+  fprintf(self->events_log, log_received_all_started_fmt, (int)self->id);
+
+  msg.s_header.s_magic = MESSAGE_MAGIC;
+  msg.s_header.s_local_time = 0;
+  msg.s_header.s_type = DONE;
+  msg.s_header.s_payload_len =
+      snprintf(msg.s_payload, MAX_PAYLOAD_LEN, log_done_fmt, (int)self->id);
+  fputs(msg.s_payload, self->events_log);
+  CHK_RETCODE(send_multicast(self, &msg));
+
+  for (size_t i = 1; i < self->n_processes; ++i) {
+    if (i != self->id) {
+      CHK_RETCODE(wait_for_message(self, i, &msg, DONE));
+    }
+  }
+
+  fprintf(self->events_log, log_received_all_done_fmt, (int)self->id);
+
   CHK_RETCODE(deinit_process(self));
   return 0;
 }
@@ -66,6 +99,14 @@ static int run_parent(struct Self *self) {
 
   // bank_robbery(parent_data);
   // print_history(all);
+
+  for (size_t i = 1; i < self->n_processes; ++i)
+    CHK_RETCODE(wait_for_message(self, i, &msg, STARTED));
+  fprintf(self->events_log, log_received_all_started_fmt, (int)self->id);
+
+  for (size_t i = 1; i < self->n_processes; ++i)
+    CHK_RETCODE(wait_for_message(self, i, &msg, DONE));
+  fprintf(self->events_log, log_received_all_done_fmt, (int)self->id);
 
   for (size_t i = 1; i < self->n_processes; ++i)
     wait(NULL);
